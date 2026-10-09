@@ -322,6 +322,19 @@ function bars(section) {
   </div>`;
 }
 
+const REFRESH_ICON = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4" stroke-linecap="round"/><path d="M21 3v6h-6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+function modalHeaderActions(symbol) {
+  const remove = symbol
+    ? `<button class="btn danger" data-remove="${escapeHtml(symbol)}">Remove</button>`
+    : '';
+  return `<div class="sheet-actions-inline">
+    <button class="btn ghost icon-btn" data-refresh title="Refresh this analysis" aria-label="Refresh analysis">${REFRESH_ICON}</button>
+    ${remove}
+    <button class="close-x" data-close aria-label="Close">×</button>
+  </div>`;
+}
+
 function renderTfRatings(m) {
   const ratings = m.ratings;
   if (!ratings || !Object.keys(ratings).length) return '';
@@ -356,11 +369,11 @@ function renderModal() {
   const tfBlock = `<div class="tf-strip">${tfStrip}</div>${renderTfRatings(m)}`;
 
   if (!a) {
-    els.modal.innerHTML = `<div class="sheet"><div class="sheet-head"><h2>${escapeHtml(m.symbol)}</h2><button class="close-x" data-close>×</button></div>${tfBlock}<p class="muted">Loading analysis…</p></div>`;
+    els.modal.innerHTML = `<div class="sheet"><div class="sheet-head"><h2>${escapeHtml(m.symbol)}</h2>${modalHeaderActions(null)}</div>${tfBlock}<p class="muted">Loading analysis…</p></div>`;
     return;
   }
   if (!a.ok) {
-    els.modal.innerHTML = `<div class="sheet"><div class="sheet-head"><h2>${escapeHtml(a.symbol || m.symbol)}</h2><button class="close-x" data-close>×</button></div>${tfBlock}<p class="muted">${escapeHtml(a.error || 'No data')}</p></div>`;
+    els.modal.innerHTML = `<div class="sheet"><div class="sheet-head"><h2>${escapeHtml(a.symbol || m.symbol)}</h2>${modalHeaderActions(a.symbol || m.symbol)}</div>${tfBlock}<p class="muted">${escapeHtml(a.error || 'No data')}</p></div>`;
     return;
   }
 
@@ -378,10 +391,7 @@ function renderModal() {
         <h2>${escapeHtml(a.symbol)}<span class="type-badge">${escapeHtml(a.type)}</span></h2>
         <p class="name">${escapeHtml(a.name)}</p>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn danger" data-remove="${escapeHtml(a.symbol)}">Remove</button>
-        <button class="close-x" data-close>×</button>
-      </div>
+      ${modalHeaderActions(a.symbol)}
     </div>
     ${tfBlock}
 
@@ -495,6 +505,10 @@ async function loadAnalyses({ silent = false } = {}) {
     resetCountdown();
     renderGrid();
     renderStatus();
+    // Keep an open detail card in sync with the auto-refresh cycle.
+    if (state.modal && state.modal.data && state.modal.data.ok) {
+      refreshDetail({ all: false, silent: true });
+    }
   } catch (err) {
     state.loading = false;
     renderStatus();
@@ -544,6 +558,37 @@ async function openDetail(symbol, timeframe) {
     state.modal.data = { ok: false, symbol, error: err.message };
     renderModal();
   }
+}
+
+// Re-fetch the open card. `all` also refreshes the per-timeframe ratings strip.
+// `silent` skips the toast when called from the auto-refresh cycle.
+async function refreshDetail({ all = true, silent = false } = {}) {
+  if (!state.modal || !state.modal.symbol) return;
+  const { symbol, timeframe } = state.modal;
+  const token = ++state.modalRequestId;
+  const button = els.modal.querySelector('[data-refresh]');
+  if (button && !silent) button.classList.add('spinning');
+  try {
+    const data = await api(
+      `/api/analysis/${encodeURIComponent(symbol)}?timeframe=${encodeURIComponent(timeframe)}${all ? '&all=1' : ''}`,
+    );
+    if (token !== state.modalRequestId || !state.modal || state.modal.symbol !== symbol) return;
+    state.modal.data = data;
+    if (all && data.timeframeRatings) state.modal.ratings = data.timeframeRatings;
+    renderModalPreservingScroll();
+    if (!silent) toast('Analysis refreshed');
+  } catch (err) {
+    if (token !== state.modalRequestId) return;
+    if (!silent) toast(err.message);
+  }
+}
+
+function renderModalPreservingScroll() {
+  const sheet = els.modal.querySelector('[data-sheet]');
+  const top = sheet ? sheet.scrollTop : 0;
+  renderModal();
+  const next = els.modal.querySelector('[data-sheet]');
+  if (next) next.scrollTop = top;
 }
 
 function closeModal() {
@@ -642,6 +687,7 @@ function bindEvents() {
   els.modal.addEventListener('click', (e) => {
     if (e.target === els.modal) return closeModal();
     if (e.target.closest('[data-close]')) return closeModal();
+    if (e.target.closest('[data-refresh]')) return refreshDetail({ all: true });
     const removeBtn = e.target.closest('[data-remove]');
     if (removeBtn) return removeSymbol(removeBtn.dataset.remove);
     if (e.target.closest('#save-settings')) return saveSettings();
