@@ -322,6 +322,24 @@ function bars(section) {
   </div>`;
 }
 
+function renderTfRatings(m) {
+  const ratings = m.ratings;
+  if (!ratings || !Object.keys(ratings).length) return '';
+  const items = state.config.timeframes
+    .map((t) => {
+      const r = ratings[t.id];
+      const active = t.id === m.timeframe ? ' active' : '';
+      if (!r || r.error) {
+        return `<button class="tf-rat${active}" data-mtf="${t.id}"><span class="tf-rat-tf">${t.label}</span><span class="tf-rat-label muted">—</span></button>`;
+      }
+      const color = RATINGS[r.rating]?.color || '#94a3b8';
+      const title = `${r.buy} buy · ${r.sell} sell · ${r.neutral} neutral${r.simulated ? ' · simulated' : ''}`;
+      return `<button class="tf-rat${active}" data-mtf="${t.id}" title="${title}"><span class="tf-rat-tf">${t.label}</span><span class="tf-rat-label" style="color:${color}">${RATINGS[r.rating]?.label || r.rating}</span></button>`;
+    })
+    .join('');
+  return `<div class="tf-ratings" aria-label="Rating by timeframe">${items}</div>`;
+}
+
 function renderModal() {
   const m = state.modal;
   if (!m) {
@@ -335,13 +353,14 @@ function renderModal() {
   const tfStrip = state.config.timeframes
     .map((t) => `<button data-mtf="${t.id}" class="${t.id === m.timeframe ? 'active' : ''}">${t.label}</button>`)
     .join('');
+  const tfBlock = `<div class="tf-strip">${tfStrip}</div>${renderTfRatings(m)}`;
 
   if (!a) {
-    els.modal.innerHTML = `<div class="sheet"><div class="sheet-head"><h2>${escapeHtml(m.symbol)}</h2><button class="close-x" data-close>×</button></div><div class="tf-strip">${tfStrip}</div><p class="muted">Loading analysis…</p></div>`;
+    els.modal.innerHTML = `<div class="sheet"><div class="sheet-head"><h2>${escapeHtml(m.symbol)}</h2><button class="close-x" data-close>×</button></div>${tfBlock}<p class="muted">Loading analysis…</p></div>`;
     return;
   }
   if (!a.ok) {
-    els.modal.innerHTML = `<div class="sheet"><div class="sheet-head"><h2>${escapeHtml(a.symbol || m.symbol)}</h2><button class="close-x" data-close>×</button></div><div class="tf-strip">${tfStrip}</div><p class="muted">${escapeHtml(a.error || 'No data')}</p></div>`;
+    els.modal.innerHTML = `<div class="sheet"><div class="sheet-head"><h2>${escapeHtml(a.symbol || m.symbol)}</h2><button class="close-x" data-close>×</button></div>${tfBlock}<p class="muted">${escapeHtml(a.error || 'No data')}</p></div>`;
     return;
   }
 
@@ -364,7 +383,7 @@ function renderModal() {
         <button class="close-x" data-close>×</button>
       </div>
     </div>
-    <div class="tf-strip">${tfStrip}</div>
+    ${tfBlock}
 
     <div class="detail-top">
       <div class="gauge">${gaugeSvg(a.summary.score, a.summary.rating, state.settings?.strongRatio)}</div>
@@ -507,13 +526,18 @@ function scheduleRefresh() {
 
 // ── modal actions ───────────────────────────────────────────────────────────
 async function openDetail(symbol, timeframe) {
-  state.modal = { symbol, timeframe: timeframe || state.timeframe, data: null };
+  const sameSymbol = state.modal && state.modal.symbol === symbol;
+  const ratings = sameSymbol ? state.modal.ratings : null;
+  state.modal = { symbol, timeframe: timeframe || state.timeframe, data: null, ratings };
   renderModal();
   const token = ++state.modalRequestId;
   try {
-    const data = await api(`/api/analysis/${encodeURIComponent(symbol)}?timeframe=${encodeURIComponent(state.modal.timeframe)}`);
+    const data = await api(
+      `/api/analysis/${encodeURIComponent(symbol)}?timeframe=${encodeURIComponent(state.modal.timeframe)}&all=1`,
+    );
     if (token !== state.modalRequestId || !state.modal) return;
     state.modal.data = data;
+    state.modal.ratings = data.timeframeRatings || state.modal.ratings;
     renderModal();
   } catch (err) {
     if (token !== state.modalRequestId || !state.modal) return;

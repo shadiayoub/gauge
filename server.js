@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { analyze, setStrongRatio } from './src/analysis.js';
 import { getCandles, clearCache } from './src/providers/index.js';
 import { resolveSymbol, catalogList, searchCatalog } from './src/symbols.js';
-import { timeframeLabels, DEFAULT_TIMEFRAME } from './src/timeframes.js';
+import { timeframeLabels, DEFAULT_TIMEFRAME, TIMEFRAMES } from './src/timeframes.js';
 import {
   getWatchlist,
   addToWatchlist,
@@ -106,6 +106,41 @@ async function mapPool(items, concurrency, fn) {
   });
   await Promise.all(workers);
   return results;
+}
+
+// Compact rating (rating + vote counts) for every timeframe, so the detail
+// view can show a "Strong Buy / Buy / Sell …" label under each timeframe tab.
+async function ratingsForAllTimeframes(symbol) {
+  const settings = publicSettings();
+  setStrongRatio(settings.strongRatio);
+  let meta;
+  try {
+    meta = resolveSymbol(symbol);
+  } catch {
+    return {};
+  }
+  const entries = await mapPool(TIMEFRAMES, 4, async (tf) => {
+    try {
+      const { candles, provider, simulated } = await getCandles(meta, tf.id, settings);
+      const a = analyze(candles, meta, tf.id);
+      return [
+        tf.id,
+        {
+          rating: a.summary.rating,
+          score: a.summary.score,
+          buy: a.summary.buy,
+          sell: a.summary.sell,
+          neutral: a.summary.neutral,
+          price: a.price,
+          provider,
+          simulated,
+        },
+      ];
+    } catch (err) {
+      return [tf.id, { error: String(err.message || err) }];
+    }
+  });
+  return Object.fromEntries(entries);
 }
 
 function sendJson(res, status, body) {
@@ -237,7 +272,11 @@ async function handleApi(req, res, url) {
   if (pathname.startsWith('/api/analysis/') && req.method === 'GET') {
     const symbol = decodeURIComponent(pathname.slice('/api/analysis/'.length));
     const timeframe = searchParams.get('timeframe') || DEFAULT_TIMEFRAME;
-    return sendJson(res, 200, await analyzeSymbol(symbol, timeframe));
+    const result = await analyzeSymbol(symbol, timeframe);
+    if (searchParams.get('all') === '1' || searchParams.get('all') === 'true') {
+      result.timeframeRatings = await ratingsForAllTimeframes(symbol);
+    }
+    return sendJson(res, 200, result);
   }
 
   return sendJson(res, 404, { error: 'Unknown API endpoint' });

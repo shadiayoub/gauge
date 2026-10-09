@@ -66,6 +66,9 @@ Or copy `.env.example` to `.env` — the server has a tiny built-in `.env` loade
 - **Detail modal** per market with the full oscillator and moving-average
   tables (value + action per indicator), a rating gauge and buy/sell/neutral
   counts.
+- **Rating-at-a-glance strip**: under the timeframe tabs, every timeframe
+  (5m → 1M) shows its own `Strong Sell … Strong Buy` label simultaneously, so
+  you can see the whole market structure at once. Click a label to switch.
 - **Multiple providers with automatic fallback** and a visible source badge, so
   you always know whether data is live, proxied or simulated.
 - **Server-side caching** with per-timeframe TTLs to respect free-tier limits.
@@ -167,6 +170,7 @@ panel, stored in `data/settings.json`.
 | `DELETE` | `/api/watchlist?symbol=XAUUSD`        | Remove                               |
 | `GET`    | `/api/analysis?timeframe=1d`          | Analysis for all watchlist symbols   |
 | `GET`    | `/api/analysis/BTCUSD?timeframe=4h`   | Analysis for one symbol              |
+| `GET`    | `/api/analysis/BTCUSD?timeframe=4h&all=1` | Adds `timeframeRatings` (all TFs) |
 | `GET`    | `/api/settings` · `POST /api/settings`| Read / update settings               |
 
 ---
