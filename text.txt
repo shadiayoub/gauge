@@ -1,0 +1,19 @@
+Done. I built Gauge, a self-hosted technical-analysis dashboard in /home/blockshady/Downloads/dapps/gauge. It runs on plain Node.js with zero npm dependencies.
+Run it
+cd /home/blockshady/Downloads/dapps/gauge
+node server.js        # then open http://localhost:4317
+What it does
+- Cards with the exact 5-level verdict — Strong Sell · Sell · Neutral · Buy · Strong Buy — each with a needle gauge, price/change, sparkline, and separate Oscillators and Moving Averages sub-ratings (like investing.com).
+- 24 indicators computed locally: RSI(14), STOCH(9,6), STOCHRSI(14), MACD(12,26), ADX(14), Williams %R, CCI(20), ATR(14), Highs/Lows(14), Ultimate Oscillator, ROC, Bull/Bear Power(13), plus SMA and EMA over 5/10/20/50/100/200.
+- Detail modal per market with the full value + action table for every indicator, a per-timeframe strip (5m→1M), and buy/sell/neutral counts.
+- User-added markets via a searchable input (with autocomplete): forex (EURUSD, GBP/JPY), metals (XAUUSD, XAGUSD), indices (US500, NAS100, GER40), crypto (BTCUSD, BTC/USDT, or any Binance base), and stocks. Custom symbols are recognized automatically.
+- Watchlist persisted to data/watchlist.json, auto-refresh, and a Settings panel.
+Data sources (and one recommendation)
+Provider priority with automatic fallback and a visible source badge on every card:
+- Crypto → Binance (no key, live — verified working: BTCUSD/ETHUSD/SOLUSD real prices).
+- Forex/metals/indices/stocks → Twelve Data → Yahoo → Stooq → Binance gold proxy → labeled simulator.
+Important: in this environment Yahoo and Stooq are rate-limited/blocked, so XAUUSD falls back to Binance's PAXG gold proxy (real, labelled) and other non-crypto markets show "Simulated data". To get real XAUUSD/XAGUSD/indices/stocks, add a free Twelve Data key in ⚙ Settings (or TWELVEDATA_API_KEY=... / .env). That single key covers everything. The UI shows a banner prompting this until a key is set.
+Verified
+- npm test → 13/13 checks pass (indicator math, rating engine, symbol resolution, simulator).
+- Full HTTP smoke test: config, watchlist add/remove, multi-market analysis, per-symbol analysis, settings, and .env loading all confirmed working.
+One heads-up: the "Strong" upgrade threshold is a tunable ratio (default 0.25) since investing.com's exact internal cutoff isn't public — it's adjustable in Settings/STRONG_RATIO. The docs in README.md spell out every signal rule used.
