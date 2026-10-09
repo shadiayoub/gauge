@@ -1,0 +1,15 @@
+{
+  "name": "gauge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Personal multi-market technical analysis dashboard (forex, metals, indices, crypto).",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node test/indicators.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
