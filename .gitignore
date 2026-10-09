@@ -1,0 +1,74 @@
+# ─────────────────────────────────────────────────────────────────────────
+# Gauge — .gitignore
+# ─────────────────────────────────────────────────────────────────────────
+
+# Secrets & local environment (never commit)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+
+# Local session / scratch files
+session.sh
+text.txt
+notes.txt
+scratch.*
+
+# OpenCode session metadata
+.opencode/
+
+# Runtime data (watchlist + settings.json which may hold an API key)
+data/
+!data/.gitkeep
+
+# Dependencies
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+jspm_packages/
+
+# Build output & caches
+dist/
+build/
+out/
+.cache/
+.parcel-cache/
+.turbo/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editors & IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
